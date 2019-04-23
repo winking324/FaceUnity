@@ -130,6 +130,37 @@
             android:paddingRight="8dp"
             android:text="@string/btn_start_recording"
             android:textColor="@color/colorWhite" />
+
+        <Button
+            android:id="@+id/btn_mirror_preview"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_margin="10dp"
+            android:background="@color/faceUnityYellow"
+            android:gravity="center"
+            android:onClick="onClick"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:text="@string/btn_mirror_preview"
+            android:textColor="@color/colorWhite" />
+
+        <Button
+            android:id="@+id/btn_mirror_local_stream"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:layout_margin="10dp"
+            android:background="@color/faceUnityYellow"
+            android:gravity="center"
+            android:onClick="onClick"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:layout_below="@id/btn_mirror_preview"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:text="@string/btn_mirror_local_stream"
+            android:textColor="@color/colorWhite" />
     </RelativeLayout>
 
 </RelativeLayout>

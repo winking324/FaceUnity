@@ -112,4 +112,10 @@
     <string name="msg_permission_rejected">Permission rejected, must grant permission first</string>
 
     <string name="expression_calibrating">Expression Calibrating</string>
+
+    <string name="btn_mirror_preview">Mirror Preview</string>
+    <string name="btn_mirror_local_stream">Mirror Local Stream</string>
+
+    <string name="btn_nv21">NV21</string>
+    <string name="btn_texture_2d">TEXTURE2D</string>
 </resources>

@@ -15,8 +15,10 @@ import android.os.Environment;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
@@ -54,6 +56,7 @@ public class MainActivity extends Activity {
         } else {
             Intent intent = new Intent(this, FUChatActivity.class);
             intent.putExtra(Constants.ACTION_KEY_ROOM_NAME, name);
+            intent.putExtra(Constants.ACTION_KEY_PIXEL_FORMAT, ((Button)findViewById(R.id.btn_pixel_format)).getText().toString());
             startActivity(intent);
         }
     }
@@ -149,6 +152,15 @@ public class MainActivity extends Activity {
 
         Toast.makeText(this, getString(R.string.msg_permission_granted),
                 Toast.LENGTH_SHORT).show();
+    }
+
+    public void onClickPixelFormat(View view) {
+        Button btnPixelFormat = (Button)view;
+        if (TextUtils.equals(btnPixelFormat.getText().toString(), getString(R.string.btn_nv21))) {
+            btnPixelFormat.setText(getString(R.string.btn_texture_2d));
+        } else {
+            btnPixelFormat.setText(getString(R.string.btn_nv21));
+        }
     }
 
     public interface OnCameraAndAudioPermissionListener {

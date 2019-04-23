@@ -1,10 +1,13 @@
 package io.agora.rtcwithfu.activities;
 
 import android.content.Intent;
+import android.hardware.Camera;
 import android.net.Uri;
 import android.opengl.EGL14;
 import android.opengl.GLSurfaceView;
+import android.opengl.Matrix;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.util.TypedValue;
@@ -21,6 +24,7 @@ import com.faceunity.encoder.MediaVideoEncoder;
 import com.faceunity.fulivedemo.renderer.CameraRenderer;
 import com.faceunity.fulivedemo.ui.adapter.EffectRecyclerAdapter;
 import com.faceunity.fulivedemo.utils.ToastUtil;
+import com.faceunity.fulivedemo.utils.YuvUtils;
 import com.faceunity.utils.Constant;
 import com.faceunity.utils.MiscUtil;
 
@@ -51,6 +55,7 @@ import io.agora.rtcwithfu.view.EffectPanel;
 public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHandler {
 
     private final static String TAG = FUChatActivity.class.getSimpleName();
+    public MediaIO.PixelFormat myPixelFomat;
 
     private final static int DESC_SHOW_LENGTH = 1500;
 
@@ -61,7 +66,7 @@ public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHand
     private FrameLayout mLocalViewContainer;
     private AgoraTextureView mRemoteView;
     private boolean mLocalViewIsBig = true;
-    private int mRemoteUid = -1;
+    private int mRemoteUid = 0;
     private float x_position;
     private float y_position;
 
@@ -69,6 +74,7 @@ public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHand
     private TextView mTrackingText;
 
     private int mCameraOrientation;
+    private int mCurrentCameraType;
 
     private IVideoFrameConsumer mIVideoFrameConsumer;
     private boolean mVideoFrameConsumerReady;
@@ -83,10 +89,18 @@ public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHand
 
     private int mSmallHeight;
     private int mSmallWidth;
+    private boolean mIsMirrorPreview;
+    private boolean mIsMirrorLocalStream;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        String strPixelFormat = getIntent().getStringExtra(Constants.ACTION_KEY_PIXEL_FORMAT);
+        if (TextUtils.equals(strPixelFormat, getString(R.string.btn_texture_2d))) {
+            myPixelFomat = MediaIO.PixelFormat.TEXTURE_2D;
+        } else {
+            myPixelFomat = MediaIO.PixelFormat.NV21;
+        }
         initUIAndEvent();
     }
 
@@ -148,15 +162,93 @@ public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHand
 
             @Override
             public int onDrawFrame(byte[] cameraNV21Byte, int cameraTextureId, int cameraWidth, int cameraHeight, float[] mtx, long timeStamp) {
-                int fuTextureId;
-                byte[] backImage = new byte[cameraNV21Byte.length];
-                fuTextureId = mFURenderer.onDrawFrame(cameraNV21Byte, cameraTextureId,
-                        cameraWidth, cameraHeight, backImage, cameraWidth, cameraHeight);
-                if (mVideoFrameConsumerReady) {
-                    mIVideoFrameConsumer.consumeByteArrayFrame(backImage,
-                            MediaIO.PixelFormat.NV21.intValue(), cameraWidth,
-                            cameraHeight, mCameraOrientation, System.currentTimeMillis());
+                int fuTextureId = 0;
+                boolean isMirrorPreview = mIsMirrorPreview;
+                boolean isMirrorLocalStream = mIsMirrorLocalStream;
+                int cameraOrientation = mCameraOrientation;
+                int currentCameraType = mCurrentCameraType;
+                MediaIO.PixelFormat pixelFormat = myPixelFomat;
+                float[] trans1, trans2, multi1;
+                float[] mirror = new float[16];
+
+                if (isMirrorPreview || pixelFormat == MediaIO.PixelFormat.TEXTURE_2D) {
+                    trans1 = new float[16];
+                    trans2 = new float[16];
+                    Matrix.setIdentityM(trans1, 0);
+                    Matrix.translateM(trans1, 0, 0.5f, 0.5f, 0f);
+                    Matrix.setIdentityM(trans2, 0);
+                    Matrix.translateM(trans2, 0, -0.5f, -0.5f, 0f);
+
+                    if ((isMirrorLocalStream && pixelFormat == MediaIO.PixelFormat.TEXTURE_2D) || isMirrorPreview) {
+                        Matrix.setIdentityM(mirror, 0);
+                        if (cameraOrientation % 90 == 0) {
+                            Matrix.scaleM(mirror, 0, 1, -1, 1);
+                        } else {
+                            Matrix.scaleM(mirror, 0, -1, 1, 1);
+                        }
+
+                        if (isMirrorLocalStream) {
+                            multi1 = new float[16];
+                            Matrix.multiplyMM(multi1, 0, trans1, 0, mirror, 0);
+                        } else {
+                            multi1 = trans1;
+                        }
+                    } else {
+                        multi1 = trans1;
+                    }
+
+                    if (pixelFormat == MediaIO.PixelFormat.TEXTURE_2D) {
+                        fuTextureId = mFURenderer.onDrawFrame(cameraNV21Byte, cameraTextureId, cameraWidth, cameraHeight);
+                        float[] rotation = new float[16];
+                        Matrix.setIdentityM(rotation, 0);
+                        if (currentCameraType == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+                            Matrix.setRotateM(rotation, 0, 360 - cameraOrientation, 0, 0, 1);
+                        } else {
+                            Matrix.setRotateM(rotation, 0, cameraOrientation, 0, 0, 1);
+                        }
+
+                        float[] multi2 = new float[16];
+                        float[] multi3 = new float[16];
+                        float[] multi4 = new float[16];
+                        Matrix.multiplyMM(multi2, 0, multi1, 0, rotation, 0);
+                        Matrix.multiplyMM(multi3, 0, multi2, 0, trans2, 0);
+                        Matrix.multiplyMM(multi4, 0, multi3, 0, mtx, 0);
+                        if (mVideoFrameConsumerReady) {
+                            mIVideoFrameConsumer.consumeTextureFrame(fuTextureId,
+                                    MediaIO.PixelFormat.TEXTURE_2D.intValue(), cameraWidth,
+                                    cameraHeight, cameraOrientation, System.currentTimeMillis(), multi4);
+                        }
+                    }
+
+                    if (isMirrorPreview) {
+                        float[] multi5 = new float[16];
+                        float[] multi6 = new float[16];
+                        float[] multi7 = new float[16];
+                        Matrix.multiplyMM(multi5, 0, trans1, 0, mirror, 0);
+                        Matrix.multiplyMM(multi6, 0, multi5, 0, trans2, 0);
+                        Matrix.multiplyMM(multi7, 0, multi6, 0, mtx, 0);
+                        System.arraycopy(multi7, 0, mtx, 0, mtx.length);
+                    }
                 }
+
+                if (pixelFormat == MediaIO.PixelFormat.NV21) {
+                    byte[] backImg = new byte[cameraNV21Byte.length];
+                    fuTextureId = mFURenderer.onDrawFrame(cameraNV21Byte, cameraTextureId, cameraWidth, cameraHeight, backImg, cameraWidth, cameraHeight);
+                    if ((currentCameraType == Camera.CameraInfo.CAMERA_FACING_FRONT && !isMirrorLocalStream)
+                            || currentCameraType == Camera.CameraInfo.CAMERA_FACING_BACK && isMirrorLocalStream) {
+                        backImg = YuvUtils.nv21MirrorY(backImg, cameraWidth, cameraHeight);
+                        if (cameraOrientation % 90 != 0) {
+                            cameraOrientation = (cameraOrientation + 180) % 360;
+                        }
+                    }
+                    if (mVideoFrameConsumerReady) {
+                        mIVideoFrameConsumer.consumeByteArrayFrame(backImg,
+                                MediaIO.PixelFormat.NV21.intValue(), cameraWidth,
+                                cameraHeight, cameraOrientation, System.currentTimeMillis());
+                    }
+
+                }
+
                 sendRecordingData(fuTextureId, mtx, timeStamp / Constant.NANO_IN_ONE_MILLI_SECOND);
                 return fuTextureId;
             }
@@ -171,6 +263,7 @@ public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHand
             public void onCameraChange(int currentCameraType, int cameraOrientation) {
                 mFURenderer.onCameraChange(currentCameraType, cameraOrientation);
                 mCameraOrientation = cameraOrientation;
+                mCurrentCameraType = currentCameraType;
             }
         });
         mGLSurfaceViewLocal.setRenderer(mGLRenderer);
@@ -291,7 +384,7 @@ public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHand
 
     private void setRtcVideos() {
         mSource = new MyTextureSource(null, 640, 480);
-        ((MyTextureSource) mSource).setPixelFormat(MediaIO.PixelFormat.NV21);
+        ((MyTextureSource) mSource).setPixelFormat(myPixelFomat);
         getWorker().setVideoSource(mSource);
     }
 
@@ -329,7 +422,8 @@ public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHand
     }
 
     private void onRemoteUserLeft() {
-        mRemoteUid = -1;
+        mRemoteUid = 0;
+        mRemoteView.setVisibility(View.GONE);
     }
 
     @Override
@@ -348,10 +442,14 @@ public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHand
     }
 
     private void setupRemoteVideo(int uid) {
+        if (mRemoteUid != 0) {
+            getRtcEngine().setRemoteVideoRenderer(mRemoteUid, null);
+        }
         mRemoteUid = uid;
         mRemoteView.init(((TextureSource) mSource).getEglContext());
         mRemoteView.setBufferType(MediaIO.BufferType.BYTE_ARRAY);
         mRemoteView.setPixelFormat(MediaIO.PixelFormat.I420);
+        mRemoteView.setVisibility(View.VISIBLE);
         getRtcEngine().setRemoteVideoRenderer(uid, mRemoteView);
     }
 
@@ -372,6 +470,16 @@ public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHand
             mDescriptionText.setVisibility(View.INVISIBLE);
         }
     };
+
+    @Override
+    protected void onMirrorLocalStreamRequested() {
+        mIsMirrorLocalStream = !mIsMirrorLocalStream;
+    }
+
+    @Override
+    protected void onMirrorPreviewRequested() {
+        mIsMirrorPreview = !mIsMirrorPreview;
+    }
 
     @Override
     protected void onViewSwitchRequested() {
@@ -512,7 +620,11 @@ public class FUChatActivity extends FUBaseActivity implements RtcEngineEventHand
         @Override
         public int getBufferType() {
             // return super.getBufferType();
-            return MediaIO.BufferType.BYTE_ARRAY.intValue();
+            if (myPixelFomat == MediaIO.PixelFormat.TEXTURE_2D) {
+                return MediaIO.BufferType.TEXTURE.intValue();
+            } else {
+                return MediaIO.BufferType.BYTE_ARRAY.intValue();
+            }
         }
 
         public void setPixelFormat(MediaIO.PixelFormat pixelFormat) {

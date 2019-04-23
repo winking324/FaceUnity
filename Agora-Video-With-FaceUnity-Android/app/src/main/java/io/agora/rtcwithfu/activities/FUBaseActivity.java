@@ -95,8 +95,18 @@ public abstract class FUBaseActivity extends RTCBaseActivity
             case R.id.btn_switch_view:
                 onViewSwitchRequested();
                 break;
+            case R.id.btn_mirror_preview:
+                onMirrorPreviewRequested();
+                break;
+            case R.id.btn_mirror_local_stream:
+                onMirrorLocalStreamRequested();
+                break;
         }
     }
+
+    protected abstract void onMirrorLocalStreamRequested();
+
+    protected abstract void onMirrorPreviewRequested();
 
     abstract protected void onCameraChangeRequested();
 

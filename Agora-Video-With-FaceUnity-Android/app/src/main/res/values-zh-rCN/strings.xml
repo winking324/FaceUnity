@@ -102,4 +102,10 @@
 
     <string name="msg_permission_granted">已拥有权限，请再次点击</string>
     <string name="msg_permission_rejected">一定要有权限才可以继续哦</string>
+
+    <string name="btn_mirror_preview">预览镜像</string>
+    <string name="btn_mirror_local_stream">本地流镜像</string>
+
+    <string name="btn_nv21">NV21</string>
+    <string name="btn_texture_2d">TEXTURE2D</string>
 </resources>

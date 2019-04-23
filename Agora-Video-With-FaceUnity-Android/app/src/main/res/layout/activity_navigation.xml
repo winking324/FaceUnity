@@ -7,6 +7,15 @@
     android:orientation="vertical"
     tools:context=".rtcwithfu.activities.MainActivity">
 
+    <Button
+        android:id="@+id/btn_pixel_format"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:onClick="onClickPixelFormat"
+        android:layout_marginBottom="10dp"
+        android:text="@string/btn_nv21" />
+
     <EditText
         android:id="@+id/edt_channel"
         android:layout_width="200dp"
@@ -19,5 +28,6 @@
         android:layout_marginTop="20dp"
         android:onClick="onStartBroadcastClick"
         android:text="start broadcast" />
+
 
 </LinearLayout>
